@@ -1,0 +1,296 @@
+# ==============================================================================
+# BANKING APPLICATION - API CURL TESTING SUITE
+# ==============================================================================
+# Port: 8080
+# Use this file to import directly into Postman or run via Command Line/Bash.
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# SECTION 1: AUTHENTICATION & BOOTSTRAPPING
+# ------------------------------------------------------------------------------
+
+# 1. Login with Default Bootstrapped Admin (Permit All)
+# Note: Copy the token returned in the response to use as Bearer token below.
+curl --location 'http://localhost:8080/api/auth/login' \
+--header 'Content-Type: application/json' \
+--data '{
+    "username": "admin",
+    "password": "Admin@123"
+}'
+
+# ------------------------------------------------------------------------------
+# SECTION 2: HIERARCHICAL ROLE & BRANCH REGISTRATION (Secured - Requires Bearer Token)
+# ------------------------------------------------------------------------------
+
+# 2a. ADMIN registers a MANAGER for Branch 1 (North Branch)
+curl --location 'http://localhost:8080/api/auth/register' \
+--header 'Authorization: Bearer <ADMIN_JWT_TOKEN>' \
+--header 'Content-Type: application/json' \
+--data '{
+    "username": "manager_north",
+    "email": "manager_north@bank.com",
+    "password": "Password@123",
+    "phoneNumber": "9876543210",
+    "alternativePhoneNumber": "9876543211",
+    "role": "MANAGER",
+    "branchId": 1
+}'
+
+# 2b. MANAGER of North Branch registers an EMPLOYEE
+# Note: The employee automatically inherits Branch 1 (North Branch)
+curl --location 'http://localhost:8080/api/auth/register' \
+--header 'Authorization: Bearer <MANAGER_NORTH_JWT_TOKEN>' \
+--header 'Content-Type: application/json' \
+--data '{
+    "username": "employee_north",
+    "email": "employee_north@bank.com",
+    "password": "Password@123",
+    "phoneNumber": "8876543210",
+    "alternativePhoneNumber": "8876543211",
+    "role": "EMPLOYEE"
+}'
+
+# 2c. EMPLOYEE of North Branch registers a CUSTOMER
+# Note: The customer automatically inherits Branch 1 (North Branch)
+curl --location 'http://localhost:8080/api/auth/register' \
+--header 'Authorization: Bearer <EMPLOYEE_NORTH_JWT_TOKEN>' \
+--header 'Content-Type: application/json' \
+--data '{
+    "username": "customer_north",
+    "email": "customer_north@bank.com",
+    "password": "Password@123",
+    "phoneNumber": "7876543210",
+    "alternativePhoneNumber": "7876543211",
+    "role": "CUSTOMER"
+}'
+
+# ------------------------------------------------------------------------------
+# SECTION 3: USER QUERIES & DROPDOWNS (Secured - Branch-Locked)
+# ------------------------------------------------------------------------------
+
+# 3a. Get User Dropdown List - Filtered for ACTIVE CUSTOMERS of caller's branch
+curl --location 'http://localhost:8080/api/auth/dropdown?role=CUSTOMER' \
+--header 'Authorization: Bearer <EMPLOYEE_NORTH_JWT_TOKEN>'
+
+# 3b. ADMIN Get User Dropdown List - Filtered for CUSTOMERS globally (or with branchId)
+curl --location 'http://localhost:8080/api/auth/dropdown?role=CUSTOMER&branchId=1' \
+--header 'Authorization: Bearer <ADMIN_JWT_TOKEN>'
+
+# 3c. Get Users List (Paginated) - Blocked/Locked to caller's branch for Manager/Employee
+curl --location 'http://localhost:8080/api/auth?role=CUSTOMER&page=0&size=10' \
+--header 'Authorization: Bearer <MANAGER_NORTH_JWT_TOKEN>'
+
+# 3d. ADMIN Get Users List - Filtered by branch ID 1
+curl --location 'http://localhost:8080/api/auth?branchId=1&page=0&size=10' \
+--header 'Authorization: Bearer <ADMIN_JWT_TOKEN>'
+
+# ------------------------------------------------------------------------------
+# SECTION 4: BANK ACCOUNT MANAGEMENT & APPROVAL FLOW (Secured)
+# ------------------------------------------------------------------------------
+
+# 4a. EMPLOYEE opens an account for Customer (e.g. userId = 3)
+# Note: Since creator is an Employee, the account status will be PENDING_APPROVAL
+curl --location 'http://localhost:8080/api/accounts' \
+--header 'Authorization: Bearer <EMPLOYEE_NORTH_JWT_TOKEN>' \
+--header 'Content-Type: application/json' \
+--data '{
+    "accountType": "SAVINGS",
+    "initialBalance": 1500.00,
+    "userId": 3
+}'
+
+# 4b. MANAGER of North Branch views pending approvals
+curl --location 'http://localhost:8080/api/accounts/pending?page=0&size=10' \
+--header 'Authorization: Bearer <MANAGER_NORTH_JWT_TOKEN>'
+
+# 4c. ADMIN views pending approvals for Branch 1
+curl --location 'http://localhost:8080/api/accounts/pending?branchId=1&page=0&size=10' \
+--header 'Authorization: Bearer <ADMIN_JWT_TOKEN>'
+
+# 4d. MANAGER of North Branch approves the account (sets status to ACTIVE) via PATCH
+curl --location --request PATCH 'http://localhost:8080/api/accounts/1' \
+--header 'Authorization: Bearer <MANAGER_NORTH_JWT_TOKEN>' \
+--header 'Content-Type: application/json' \
+--data '{
+    "status": "ACTIVE"
+}'
+
+# 4e. Rejection Test: MANAGER of another branch tries to approve/reject
+# (Will return 403 Forbidden/Access Denied)
+curl --location --request PATCH 'http://localhost:8080/api/accounts/1' \
+--header 'Authorization: Bearer <MANAGER_SOUTH_JWT_TOKEN>' \
+--header 'Content-Type: application/json' \
+--data '{
+    "status": "REJECTED"
+}'
+
+# ------------------------------------------------------------------------------
+# SECTION 5: PUT & PATCH METHODS
+# ------------------------------------------------------------------------------
+
+# 5a. PATCH User: Partially update alternativePhoneNumber
+curl --location --request PATCH 'http://localhost:8080/api/auth/3' \
+--header 'Authorization: Bearer <MANAGER_NORTH_JWT_TOKEN>' \
+--header 'Content-Type: application/json' \
+--data '{
+    "alternativePhoneNumber": "9999999999"
+}'
+
+# 5b. PUT User: Full update of user (requires all fields)
+curl --location --request PUT 'http://localhost:8080/api/auth/3' \
+--header 'Authorization: Bearer <MANAGER_NORTH_JWT_TOKEN>' \
+--header 'Content-Type: application/json' \
+--data '{
+    "username": "customer_north",
+    "email": "customer_north_updated@bank.com",
+    "phoneNumber": "7876543210",
+    "alternativePhoneNumber": "7876543212"
+}'
+
+# ------------------------------------------------------------------------------
+# SECTION 6: BRANCH MANAGEMENT (LOOKUPS, CREATION & ADMIN-ONLY TRANSFERS)
+# ------------------------------------------------------------------------------
+
+# 6a. ADMIN creates a new Branch (succeeds)
+curl --location 'http://localhost:8080/api/branches' \
+--header 'Authorization: Bearer <ADMIN_JWT_TOKEN>' \
+--header 'Content-Type: application/json' \
+--data '{
+    "name": "West Branch",
+    "branchCode": "BR004",
+    "ifscCode": "BANK0000004",
+    "address": "101 West Rd"
+}'
+
+# 6b. Rejection Test: MANAGER tries to create a Branch (Will return 403 Forbidden/Access Denied)
+curl --location 'http://localhost:8080/api/branches' \
+--header 'Authorization: Bearer <MANAGER_NORTH_JWT_TOKEN>' \
+--header 'Content-Type: application/json' \
+--data '{
+    "name": "Forbidden Branch",
+    "branchCode": "BR005",
+    "ifscCode": "BANK0000005",
+    "address": "202 Bad Rd"
+}'
+
+# 6c. ADMIN gets all branches (returns all branches with name, code, IFSC, address)
+curl --location 'http://localhost:8080/api/branches' \
+--header 'Authorization: Bearer <ADMIN_JWT_TOKEN>'
+
+# 6d. MANAGER or EMPLOYEE gets all branches (returns only their own branch)
+curl --location 'http://localhost:8080/api/branches' \
+--header 'Authorization: Bearer <MANAGER_NORTH_JWT_TOKEN>'
+
+# 6e. Get specific branch details by ID
+curl --location 'http://localhost:8080/api/branches/1' \
+--header 'Authorization: Bearer <MANAGER_NORTH_JWT_TOKEN>'
+
+# 6f. ADMIN transfers Employee to Branch 2 via PATCH (succeeds)
+curl --location --request PATCH 'http://localhost:8080/api/auth/2' \
+--header 'Authorization: Bearer <ADMIN_JWT_TOKEN>' \
+--header 'Content-Type: application/json' \
+--data '{
+    "branchId": 2
+}'
+
+# 6g. Rejection Test: MANAGER tries to transfer Employee to Branch 2 via PATCH
+# (Will return 403 Forbidden/Access Denied)
+curl --location --request PATCH 'http://localhost:8080/api/auth/2' \
+--header 'Authorization: Bearer <MANAGER_NORTH_JWT_TOKEN>' \
+--header 'Content-Type: application/json' \
+--data '{
+    "branchId": 2
+}'
+
+# ------------------------------------------------------------------------------
+# SECTION 7: TRANSACTIONS & MONEY TRANSFERS (DEPOSITS, WITHDRAWALS, TRANSFERS)
+# ------------------------------------------------------------------------------
+
+# 7a. EMPLOYEE processes a cash DEPOSIT (amount = 1000.00) into Customer Account (accountNumber = "123456789012")
+# Note: Caller must be bank staff. Target account must be active.
+curl --location 'http://localhost:8080/api/transactions/deposit' \
+--header 'Authorization: Bearer <EMPLOYEE_NORTH_JWT_TOKEN>' \
+--header 'Content-Type: application/json' \
+--data '{
+    "targetAccountNumber": "123456789012",
+    "amount": 1000.00,
+    "description": "Initial cash deposit"
+}'
+
+# 7b. CUSTOMER processes a cash WITHDRAWAL (amount = 200.00) from their own account
+# Note: Verify balance exceeds amount. Customer can only withdraw from their own account.
+curl --location 'http://localhost:8080/api/transactions/withdraw' \
+--header 'Authorization: Bearer <CUSTOMER_JWT_TOKEN>' \
+--header 'Content-Type: application/json' \
+--data '{
+    "sourceAccountNumber": "123456789012",
+    "amount": 200.00,
+    "description": "ATM Cash Withdrawal"
+}'
+
+# 7c. CUSTOMER processes a TRANSFER (amount = 150.00) to another account
+# Note: Source account must belong to the logged-in customer. Both must be ACTIVE.
+curl --location 'http://localhost:8080/api/transactions/transfer' \
+--header 'Authorization: Bearer <CUSTOMER_JWT_TOKEN>' \
+--header 'Content-Type: application/json' \
+--data '{
+    "sourceAccountNumber": "123456789012",
+    "targetAccountNumber": "987654321098",
+    "amount": 150.00,
+    "description": "Transfer to customer 2"
+}'
+
+# 7d. Get Transaction History for a specific account (Paginated)
+# Note: Customer can query their own accounts. Staff can query their branch accounts.
+curl --location 'http://localhost:8080/api/transactions/history?accountNumber=123456789012&page=0&size=10' \
+--header 'Authorization: Bearer <CUSTOMER_JWT_TOKEN>'
+
+# 7e. Get Transaction History summary (Omitted accountNumber parameter)
+# Note: CUSTOMER gets their own history; MANAGER/EMPLOYEE gets branch history; ADMIN gets global history.
+curl --location 'http://localhost:8080/api/transactions/history?page=0&size=10' \
+--header 'Authorization: Bearer <MANAGER_NORTH_JWT_TOKEN>'
+
+# ------------------------------------------------------------------------------
+# SECTION 8: DASHBOARD & ANALYTICS APIS
+# ------------------------------------------------------------------------------
+
+# 8a. Get Dashboard Summary for ADMIN
+# Returns global active user/account counts, volumes, global transaction history, and branch summaries.
+curl --location 'http://localhost:8080/api/dashboard/summary' \
+--header 'Authorization: Bearer <ADMIN_JWT_TOKEN>'
+
+# 8b. Get Dashboard Summary for MANAGER / EMPLOYEE
+# Returns active counts and volumes isolated to their branch, branch recent transactions, and branch details.
+curl --location 'http://localhost:8080/api/dashboard/summary' \
+--header 'Authorization: Bearer <MANAGER_NORTH_JWT_TOKEN>'
+
+# 8c. Get Dashboard Summary for CUSTOMER
+# Returns total balance of their active accounts, volumes matching their transactions, and personal transaction history.
+curl --location 'http://localhost:8080/api/dashboard/summary' \
+--header 'Authorization: Bearer <CUSTOMER_JWT_TOKEN>'
+
+# ------------------------------------------------------------------------------
+# SECTION 9: AUDIT LOGGING & COMPLIANCE (Secured)
+# ------------------------------------------------------------------------------
+
+# 9a. ADMIN gets all audit logs (globally)
+curl --location 'http://localhost:8080/api/audit-logs?page=0&size=10' \
+--header 'Authorization: Bearer <ADMIN_JWT_TOKEN>'
+
+# 9b. ADMIN gets audit logs filtered by action type (e.g. BRANCH_TRANSFER)
+curl --location 'http://localhost:8080/api/audit-logs?action=BRANCH_TRANSFER&page=0&size=10' \
+--header 'Authorization: Bearer <ADMIN_JWT_TOKEN>'
+
+# 9c. ADMIN gets audit logs filtered by branchId 1
+curl --location 'http://localhost:8080/api/audit-logs?branchId=1&page=0&size=10' \
+--header 'Authorization: Bearer <ADMIN_JWT_TOKEN>'
+
+# 9d. MANAGER of North Branch gets audit logs (automatically branch-isolated to Branch 1)
+curl --location 'http://localhost:8080/api/audit-logs?page=0&size=10' \
+--header 'Authorization: Bearer <MANAGER_NORTH_JWT_TOKEN>'
+
+# 9e. CUSTOMER tries to view audit logs (returns 403 Forbidden)
+curl --location 'http://localhost:8080/api/audit-logs?page=0&size=10' \
+--header 'Authorization: Bearer <CUSTOMER_JWT_TOKEN>'
+
+

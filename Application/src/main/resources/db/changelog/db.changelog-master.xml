@@ -1,0 +1,211 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <changeSet id="1" author="bank-app">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <tableExists tableName="users"/>
+            </not>
+        </preConditions>
+        <createTable tableName="users">
+            <column name="id" type="BIGINT" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="username" type="VARCHAR(255)">
+                <constraints unique="true" nullable="false"/>
+            </column>
+            <column name="email" type="VARCHAR(255)">
+                <constraints unique="true" nullable="false"/>
+            </column>
+            <column name="password" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="role" type="VARCHAR(255)"/>
+            <column name="status" type="VARCHAR(255)"/>
+            <column name="phone_number" type="VARCHAR(255)">
+                <constraints unique="true" nullable="false"/>
+            </column>
+            <column name="alternative_phone_number" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_at" type="DATETIME"/>
+        </createTable>
+    </changeSet>
+
+    <changeSet id="2" author="bank-app">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <tableExists tableName="accounts"/>
+            </not>
+        </preConditions>
+        <createTable tableName="accounts">
+            <column name="id" type="BIGINT" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="account_number" type="VARCHAR(255)">
+                <constraints unique="true" nullable="false"/>
+            </column>
+            <column name="account_type" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="balance" type="DECIMAL(38,2)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="status" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_at" type="DATETIME">
+                <constraints nullable="false"/>
+            </column>
+            <column name="user_id" type="BIGINT">
+                <constraints nullable="false" foreignKeyName="fk_accounts_users" referencedTableName="users" referencedColumnNames="id"/>
+            </column>
+        </createTable>
+    </changeSet>
+
+    <changeSet id="3" author="bank-app">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">select count(*) from users where username='admin'</sqlCheck>
+        </preConditions>
+        <insert tableName="users">
+            <column name="username" value="admin"/>
+            <column name="email" value="admin@bank.com"/>
+            <column name="password" value="2mjL48yNdZka2REfUWSFDw=="/>
+            <column name="role" value="ADMIN"/>
+            <column name="status" value="ACTIVE"/>
+            <column name="phone_number" value="0000000000"/>
+            <column name="alternative_phone_number" value="1111111111"/>
+            <column name="created_at" valueDate="2026-06-24T10:00:00"/>
+        </insert>
+    </changeSet>
+
+    <changeSet id="4" author="bank-app">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <tableExists tableName="branches"/>
+            </not>
+        </preConditions>
+        <createTable tableName="branches">
+            <column name="id" type="BIGINT" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="name" type="VARCHAR(255)">
+                <constraints unique="true" nullable="false"/>
+            </column>
+            <column name="branch_code" type="VARCHAR(255)">
+                <constraints unique="true" nullable="false"/>
+            </column>
+            <column name="ifsc_code" type="VARCHAR(255)">
+                <constraints unique="true" nullable="false"/>
+            </column>
+            <column name="address" type="VARCHAR(255)"/>
+        </createTable>
+    </changeSet>
+
+    <changeSet id="5" author="bank-app">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <columnExists tableName="users" columnName="branch_id"/>
+            </not>
+        </preConditions>
+        <addColumn tableName="users">
+            <column name="branch_id" type="BIGINT">
+                <constraints foreignKeyName="fk_users_branches" referencedTableName="branches" referencedColumnNames="id"/>
+            </column>
+        </addColumn>
+    </changeSet>
+
+    <changeSet id="6" author="bank-app">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">select count(*) from branches where branch_code='BR001'</sqlCheck>
+        </preConditions>
+        <insert tableName="branches">
+            <column name="name" value="North Branch"/>
+            <column name="branch_code" value="BR001"/>
+            <column name="ifsc_code" value="BANK0000001"/>
+            <column name="address" value="123 North St"/>
+        </insert>
+        <insert tableName="branches">
+            <column name="name" value="South Branch"/>
+            <column name="branch_code" value="BR002"/>
+            <column name="ifsc_code" value="BANK0000002"/>
+            <column name="address" value="456 South St"/>
+        </insert>
+        <insert tableName="branches">
+            <column name="name" value="East Branch"/>
+            <column name="branch_code" value="BR003"/>
+            <column name="ifsc_code" value="BANK0000003"/>
+            <column name="address" value="789 East St"/>
+        </insert>
+    </changeSet>
+
+    <changeSet id="7" author="bank-app">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <tableExists tableName="transactions"/>
+            </not>
+        </preConditions>
+        <createTable tableName="transactions">
+            <column name="id" type="BIGINT" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="transaction_number" type="VARCHAR(255)">
+                <constraints unique="true" nullable="false"/>
+            </column>
+            <column name="amount" type="DECIMAL(38,2)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="transaction_type" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="status" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="description" type="VARCHAR(255)"/>
+            <column name="timestamp" type="DATETIME">
+                <constraints nullable="false"/>
+            </column>
+            <column name="source_account_id" type="BIGINT">
+                <constraints foreignKeyName="fk_transactions_source_accounts" referencedTableName="accounts" referencedColumnNames="id"/>
+            </column>
+            <column name="target_account_id" type="BIGINT">
+                <constraints foreignKeyName="fk_transactions_target_accounts" referencedTableName="accounts" referencedColumnNames="id"/>
+            </column>
+        </createTable>
+    </changeSet>
+
+    <changeSet id="8" author="bank-app">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <tableExists tableName="audit_logs"/>
+            </not>
+        </preConditions>
+        <createTable tableName="audit_logs">
+            <column name="id" type="BIGINT" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="action" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="action_by" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="action_target" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="old_value" type="VARCHAR(1000)"/>
+            <column name="new_value" type="VARCHAR(1000)"/>
+            <column name="timestamp" type="DATETIME">
+                <constraints nullable="false"/>
+            </column>
+            <column name="branch_id" type="BIGINT">
+                <constraints foreignKeyName="fk_audit_logs_branches" referencedTableName="branches" referencedColumnNames="id"/>
+            </column>
+        </createTable>
+    </changeSet>
+
+</databaseChangeLog>
