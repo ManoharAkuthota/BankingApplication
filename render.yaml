@@ -11,6 +11,8 @@ services:
     region: oregon
     healthCheckPath: /api/health
     envVars:
+      - key: PORT
+        value: "8080"
       # TiDB Serverless connection details (configured via Render Dashboard)
       - key: SPRING_DATASOURCE_URL
         sync: false
