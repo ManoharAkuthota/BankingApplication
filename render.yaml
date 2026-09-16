@@ -9,7 +9,7 @@ services:
     dockerContext: ./Application
     plan: free
     region: oregon
-    healthCheckPath: /actuator/health
+    healthCheckPath: /api/health
     envVars:
       # TiDB Serverless connection details (configured via Render Dashboard)
       - key: SPRING_DATASOURCE_URL
