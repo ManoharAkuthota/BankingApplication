@@ -31,8 +31,12 @@ services:
   - type: web
     name: apex-trust-frontend
     runtime: static
-    buildCommand: cd frontend && npm install && npm run build
-    staticPublishPath: ./frontend/dist/frontend/browser
+    rootDir: frontend
+    buildCommand: npm install --legacy-peer-deps && npm run build
+    staticPublishPath: ./dist/frontend/browser
+    envVars:
+      - key: NODE_VERSION
+        value: "20.18.0"
     headers:
       - path: /*
         name: Cache-Control
